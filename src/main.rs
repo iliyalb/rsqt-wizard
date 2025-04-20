@@ -3,13 +3,24 @@ use qmetaobject::prelude::*;
 use std::path::{Path, PathBuf};
 use std::fs;
 use walkdir::WalkDir;
+use std::thread;
+use std::sync::{Arc, Mutex};
+
+struct InstallProgress {
+    current_file: String,
+    progress: f64,
+    complete: bool,
+}
+
+lazy_static::lazy_static! {
+    static ref INSTALL_PROGRESS: Arc<Mutex<Option<InstallProgress>>> = Arc::new(Mutex::new(None));
+}
 
 #[derive(QObject, Default)]
 struct Greeter {
     base: qt_base_class!(trait QObject),
     
     // Properties
-    name: qt_property!(QString; NOTIFY name_changed),
     install_path: qt_property!(QString; NOTIFY install_path_changed),
     create_shortcut: qt_property!(bool; NOTIFY create_shortcut_changed),
     required_space: qt_property!(QString; NOTIFY required_space_changed),
@@ -18,7 +29,6 @@ struct Greeter {
     installation_complete: qt_property!(bool; NOTIFY installation_complete_changed),
     
     // Signals
-    name_changed: qt_signal!(),
     install_path_changed: qt_signal!(),
     create_shortcut_changed: qt_signal!(),
     required_space_changed: qt_signal!(),
@@ -26,11 +36,6 @@ struct Greeter {
     progress_changed: qt_signal!(),
     installation_complete_changed: qt_signal!(),
     
-    // Methods
-    compute_greetings: qt_method!(fn compute_greetings(&self, verb: String) -> QString {
-        format!("{} {}", verb, self.name.to_string()).into()
-    }),
-
     calculate_required_space: qt_method!(fn calculate_required_space(&mut self) -> QString {
         let data_path = Path::new("data");
         let size = if data_path.exists() {
@@ -72,55 +77,100 @@ struct Greeter {
         self.create_shortcut_changed();
     }),
 
+    check_progress: qt_method!(fn check_progress(&mut self) {
+        if let Ok(progress_guard) = INSTALL_PROGRESS.lock() {
+            if let Some(progress) = progress_guard.as_ref() {
+                // Update UI with current progress
+                self.current_file = progress.current_file.clone().into();
+                self.current_file_changed();
+                self.progress = progress.progress;
+                self.progress_changed();
+                
+                // Check if installation is complete
+                if progress.complete {
+                    self.installation_complete = true;
+                    self.installation_complete_changed();
+                }
+            }
+        }
+    }),
+
     start_installation: qt_method!(fn start_installation(&mut self) {
-        let source_dir = Path::new("data");
+        let source_dir = Path::new("data").to_path_buf();
         let dest_dir = PathBuf::from(self.install_path.to_string());
         
-        // Count total files for progress calculation
-        let total_files = WalkDir::new(source_dir)
+        // Count total files
+        let total_files = WalkDir::new(&source_dir)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
             .count();
-        
-        let mut files_processed = 0;
-        
-        // Create destination directory if it doesn't exist
-        if !dest_dir.exists() {
-            let _ = fs::create_dir_all(&dest_dir);
+            
+        if total_files == 0 {
+            self.installation_complete = true;
+            self.installation_complete_changed();
+            return;
         }
-        
-        // Copy files
-        for entry in WalkDir::new(source_dir) {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if path.is_file() {
-                    let relative = path.strip_prefix(source_dir).unwrap();
-                    let target = dest_dir.join(relative);
-                    
-                    // Create parent directories if they don't exist
-                    if let Some(parent) = target.parent() {
-                        let _ = fs::create_dir_all(parent);
+
+        // Initialize progress safely
+        if let Ok(mut progress) = INSTALL_PROGRESS.lock() {
+            *progress = Some(InstallProgress {
+                current_file: String::new(),
+                progress: 0.0,
+                complete: false,
+            });
+        }
+
+        // Clone necessary values for the thread
+        let source_dir_thread = source_dir.clone();
+        let dest_dir_thread = dest_dir.clone();
+        let progress_arc = INSTALL_PROGRESS.clone();
+
+        // Spawn worker thread
+        thread::spawn(move || {
+            if !dest_dir_thread.exists() {
+                let _ = fs::create_dir_all(&dest_dir_thread);
+            }
+
+            let mut files_processed = 0;
+
+            for entry in WalkDir::new(source_dir_thread) {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    if path.is_file() {
+                        let relative = path.strip_prefix(&source_dir).unwrap_or(path);
+                        let target = dest_dir_thread.join(relative);
+
+                        if let Some(parent) = target.parent() {
+                            let _ = fs::create_dir_all(parent);
+                        }
+
+                        // Update progress safely
+                        if let Ok(mut progress) = progress_arc.lock() {
+                            if let Some(ref mut p) = *progress {
+                                p.current_file = target.to_string_lossy().to_string();
+                                p.progress = files_processed as f64 / total_files as f64 * 100.0;
+                            }
+                        }
+
+                        // Copy file
+                        let _ = fs::copy(path, &target);
+                        files_processed += 1;
+
+                        // Small delay to prevent UI freeze
+                        thread::sleep(std::time::Duration::from_millis(10));
                     }
-                    
-                    // Update current file being processed
-                    self.current_file = target.to_string_lossy().to_string().into();
-                    self.current_file_changed();
-                    
-                    // Copy file
-                    let _ = fs::copy(path, &target);
-                    
-                    // Update progress
-                    files_processed += 1;
-                    self.progress = (files_processed as f64 / total_files as f64) * 100.0;
-                    self.progress_changed();
                 }
             }
-        }
-        
-        // Mark installation as complete
-        self.installation_complete = true;
-        self.installation_complete_changed();
+
+            // Mark as complete safely
+            if let Ok(mut progress) = progress_arc.lock() {
+                if let Some(ref mut p) = *progress {
+                    p.complete = true;
+                    p.progress = 100.0;
+                }
+            }
+        });
     })
 }
 

@@ -303,29 +303,39 @@ Window {
             wrapMode: Text.WordWrap
         }
 
-        Item { Layout.fillHeight: true }
+        Item {
+            Layout.fillHeight: true
+        }
 
         RowLayout {
             Layout.alignment: Qt.AlignRight
             Layout.fillWidth: true
             spacing: 8
-            Item { Layout.fillWidth: true }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
             Button {
                 text: "Cancel"
                 onClicked: mainWindow.cancelDialogOpen = true
             }
+
             Button {
                 text: "Back"
                 onClicked: mainWindow.stage = 1
             }
+
             Button {
                 text: "Install"
                 onClicked: {
-                    mainWindow.stage = 3
-                    greeter.start_installation()
+                    mainWindow.stage = 3;
+                    greeter.start_installation();
                 }
             }
+
         }
+
     }
 
     // Fourth Stage - Installing
@@ -334,6 +344,19 @@ Window {
         anchors.margins: 24
         spacing: 12
         visible: mainWindow.stage === 3 && !greeter.installation_complete
+
+        Timer {
+            id: progressTimer
+            interval: 50
+            repeat: true
+            running: mainWindow.stage === 3 && !greeter.installation_complete
+            onTriggered: {
+                greeter.check_progress()
+                if (greeter.installation_complete) {
+                    mainWindow.stage = 4
+                }
+            }
+        }
 
         Text {
             Layout.fillWidth: true
@@ -370,20 +393,42 @@ Window {
         ProgressBar {
             Layout.fillWidth: true
             value: greeter.progress / 100
+            height: 20
+
+            background: Rectangle {
+                color: "lightgray"
+                border.width: 1
+                border.color: "gray"
+            }
+
+            contentItem: Rectangle {
+                color: "lightgreen"
+                border.width: 1
+                border.color: "darkgreen"
+            }
+
         }
 
-        Item { Layout.fillHeight: true }
+        Item {
+            Layout.fillHeight: true
+        }
 
         RowLayout {
             Layout.alignment: Qt.AlignRight
             Layout.fillWidth: true
             spacing: 8
-            Item { Layout.fillWidth: true }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
             Button {
                 text: "Cancel"
                 onClicked: mainWindow.cancelDialogOpen = true
             }
+
         }
+
     }
 
     // Fifth Stage - Complete
@@ -391,7 +436,7 @@ Window {
         anchors.fill: parent
         anchors.margins: 24
         spacing: 12
-        visible: mainWindow.stage === 3 && greeter.installation_complete
+        visible: mainWindow.stage === 4
 
         Text {
             Layout.fillWidth: true
@@ -408,18 +453,26 @@ Window {
             wrapMode: Text.WordWrap
         }
 
-        Item { Layout.fillHeight: true }
+        Item {
+            Layout.fillHeight: true
+        }
 
         RowLayout {
             Layout.alignment: Qt.AlignRight
             Layout.fillWidth: true
             spacing: 8
-            Item { Layout.fillWidth: true }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
             Button {
                 text: "Finish"
                 onClicked: Qt.quit()
             }
+
         }
+
     }
 
     // Cancel Confirmation Dialog
