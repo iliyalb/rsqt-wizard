@@ -19,29 +19,7 @@ struct Greeter {
 fn main() {
     // Register the `Greeter` struct to QML
     qml_register_type::<Greeter>(cstr!("Greeter"), 1, 0, cstr!("Greeter"));
-    // Create a QML engine from rust
     let mut engine = QmlEngine::new();
-    // (Here the QML code is inline, but one can also load from a file)
-    engine.load_data(r#"
-        import QtQuick 2.6
-        import QtQuick.Window 2.0
-        // Import our Rust classes
-        import Greeter 1.0
-
-        Window {
-            visible: true
-            // Instantiate the rust struct
-            Greeter {
-                id: greeter;
-                // Set a property
-                name: "World"
-            }
-            Text {
-                anchors.centerIn: parent
-                // Call a method
-                text: greeter.compute_greetings("hello")
-            }
-        }
-    "#.into());
+    engine.load_file("src/WizardWindow.qml".into());
     engine.exec();
 }
