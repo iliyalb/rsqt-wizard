@@ -6,4 +6,6 @@ edition = "2024"
 [dependencies]
 cstr = "0.2.12"
 qmetaobject = "0.2.10"
+walkdir = "2.3"
+native-dialog = "0.6"
 
