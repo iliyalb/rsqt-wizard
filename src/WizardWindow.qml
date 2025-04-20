@@ -14,7 +14,7 @@ Window {
     visible: true
     width: 600
     height: 500
-    title: "App Installer Wizard"
+    title: "Installer Wizard"
     flags: Qt.Dialog | Qt.MSWindowsFixedSizeDialogHint | Qt.WindowCloseButtonHint
     minimumWidth: width
     maximumWidth: width
