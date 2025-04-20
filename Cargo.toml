@@ -8,4 +8,5 @@ cstr = "0.2.12"
 qmetaobject = "0.2.10"
 walkdir = "2.3"
 native-dialog = "0.6"
+lazy_static = "1.4"
 

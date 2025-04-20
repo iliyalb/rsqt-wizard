@@ -478,6 +478,7 @@ name = "rsqt-wizard"
 version = "0.1.0"
 dependencies = [
  "cstr",
+ "lazy_static",
  "native-dialog",
  "qmetaobject",
  "walkdir",
