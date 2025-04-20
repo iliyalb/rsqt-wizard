@@ -24,7 +24,16 @@ Before building and running this project, ensure you have the following installe
 
     *   **Windows:** Install Qt using the online installer from [https://www.qt.io/download](https://www.qt.io/download).  Make sure to select the "Qt for Desktop" option and include the necessary components (e.g., MinGW or MSVC compiler).
     *   **macOS:** Install Qt using Homebrew: `brew install qt6`
-    *   **Linux:** Use your distribution's package manager to install Qt6.  For example, on Debian/Ubuntu: `sudo apt-get update && sudo apt-get install qt6-base-dev qt6-default-development-tools` (adjust the package names as needed for your specific distro).
+    *   **Linux:** Use your distribution's package manager to install Qt6:
+    
+    Debian/Ubuntu:
+    ```sh
+    apt-get update && apt-get install qt6-base-dev qt6-default-development-tools
+    ```
+    Arch:
+    ```sh
+    pacman -S qt6-base qt6-declarative qt6-tools
+    ```
 
 3. **Verify Qt Installation:** After installation, verify that Qt is correctly installed by running `qmake6 --version` in your terminal.  This should output the Qt version number.
 
