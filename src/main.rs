@@ -1,6 +1,7 @@
 use cstr::cstr;
 use qmetaobject::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::fs;
 use walkdir::WalkDir;
 
 #[derive(QObject, Default)]
@@ -12,12 +13,18 @@ struct Greeter {
     install_path: qt_property!(QString; NOTIFY install_path_changed),
     create_shortcut: qt_property!(bool; NOTIFY create_shortcut_changed),
     required_space: qt_property!(QString; NOTIFY required_space_changed),
+    current_file: qt_property!(QString; NOTIFY current_file_changed),
+    progress: qt_property!(f64; NOTIFY progress_changed),
+    installation_complete: qt_property!(bool; NOTIFY installation_complete_changed),
     
     // Signals
     name_changed: qt_signal!(),
     install_path_changed: qt_signal!(),
     create_shortcut_changed: qt_signal!(),
     required_space_changed: qt_signal!(),
+    current_file_changed: qt_signal!(),
+    progress_changed: qt_signal!(),
+    installation_complete_changed: qt_signal!(),
     
     // Methods
     compute_greetings: qt_method!(fn compute_greetings(&self, verb: String) -> QString {
@@ -63,6 +70,57 @@ struct Greeter {
     set_create_shortcut: qt_method!(fn set_create_shortcut(&mut self, create: bool) {
         self.create_shortcut = create;
         self.create_shortcut_changed();
+    }),
+
+    start_installation: qt_method!(fn start_installation(&mut self) {
+        let source_dir = Path::new("data");
+        let dest_dir = PathBuf::from(self.install_path.to_string());
+        
+        // Count total files for progress calculation
+        let total_files = WalkDir::new(source_dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+            .count();
+        
+        let mut files_processed = 0;
+        
+        // Create destination directory if it doesn't exist
+        if !dest_dir.exists() {
+            let _ = fs::create_dir_all(&dest_dir);
+        }
+        
+        // Copy files
+        for entry in WalkDir::new(source_dir) {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.is_file() {
+                    let relative = path.strip_prefix(source_dir).unwrap();
+                    let target = dest_dir.join(relative);
+                    
+                    // Create parent directories if they don't exist
+                    if let Some(parent) = target.parent() {
+                        let _ = fs::create_dir_all(parent);
+                    }
+                    
+                    // Update current file being processed
+                    self.current_file = target.to_string_lossy().to_string().into();
+                    self.current_file_changed();
+                    
+                    // Copy file
+                    let _ = fs::copy(path, &target);
+                    
+                    // Update progress
+                    files_processed += 1;
+                    self.progress = (files_processed as f64 / total_files as f64) * 100.0;
+                    self.progress_changed();
+                }
+            }
+        }
+        
+        // Mark installation as complete
+        self.installation_complete = true;
+        self.installation_complete_changed();
     })
 }
 

@@ -7,7 +7,7 @@ import QtQuick.Window 2.0
 Window {
     id: mainWindow
 
-    property int stage: 0 // 0: license, 1: directory selection, 2: install
+    property int stage: 0 // 0: license, 1: directory selection, 2: ready to install, 3: installing, 4: complete
     property bool accepted: false
     property bool cancelDialogOpen: false
 
@@ -280,9 +280,18 @@ Window {
 
         Text {
             Layout.fillWidth: true
-            text: "Setup is now ready to begin installing the application on your computer."
+            text: "Setup will install files to:"
             font.pixelSize: 14
             color: "#666666"
+            wrapMode: Text.WordWrap
+        }
+
+        Text {
+            Layout.fillWidth: true
+            text: greeter.install_path
+            font.pixelSize: 14
+            font.family: "monospace"
+            color: "#000000"
             wrapMode: Text.WordWrap
         }
 
@@ -294,43 +303,127 @@ Window {
             wrapMode: Text.WordWrap
         }
 
-        Item {
-            Layout.fillHeight: true
-        }
+        Item { Layout.fillHeight: true }
 
         RowLayout {
             Layout.alignment: Qt.AlignRight
             Layout.fillWidth: true
             spacing: 8
-
-            Item {
-                Layout.fillWidth: true
-            }
-
+            Item { Layout.fillWidth: true }
             Button {
                 text: "Cancel"
                 onClicked: mainWindow.cancelDialogOpen = true
             }
-
             Button {
                 text: "Back"
                 onClicked: mainWindow.stage = 1
             }
-
             Button {
-                // Installation logic will be added here
-
                 text: "Install"
                 onClicked: {
+                    mainWindow.stage = 3
+                    greeter.start_installation()
                 }
             }
+        }
+    }
 
+    // Fourth Stage - Installing
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 24
+        spacing: 12
+        visible: mainWindow.stage === 3 && !greeter.installation_complete
+
+        Text {
+            Layout.fillWidth: true
+            text: "Installing"
+            font.pixelSize: 28
+            font.bold: true
         }
 
+        Text {
+            Layout.fillWidth: true
+            text: "Please wait while setup installs files on your computer."
+            font.pixelSize: 14
+            color: "#666666"
+            wrapMode: Text.WordWrap
+        }
+
+        Text {
+            Layout.fillWidth: true
+            text: "Extracting files..."
+            font.pixelSize: 14
+            color: "#666666"
+            wrapMode: Text.WordWrap
+        }
+
+        Text {
+            Layout.fillWidth: true
+            text: greeter.current_file
+            font.pixelSize: 12
+            font.family: "monospace"
+            color: "#666666"
+            wrapMode: Text.WordWrap
+        }
+
+        ProgressBar {
+            Layout.fillWidth: true
+            value: greeter.progress / 100
+        }
+
+        Item { Layout.fillHeight: true }
+
+        RowLayout {
+            Layout.alignment: Qt.AlignRight
+            Layout.fillWidth: true
+            spacing: 8
+            Item { Layout.fillWidth: true }
+            Button {
+                text: "Cancel"
+                onClicked: mainWindow.cancelDialogOpen = true
+            }
+        }
+    }
+
+    // Fifth Stage - Complete
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 24
+        spacing: 12
+        visible: mainWindow.stage === 3 && greeter.installation_complete
+
+        Text {
+            Layout.fillWidth: true
+            text: "Installation Complete"
+            font.pixelSize: 28
+            font.bold: true
+        }
+
+        Text {
+            Layout.fillWidth: true
+            text: "Wizard has finished installing files on your computer."
+            font.pixelSize: 14
+            color: "#666666"
+            wrapMode: Text.WordWrap
+        }
+
+        Item { Layout.fillHeight: true }
+
+        RowLayout {
+            Layout.alignment: Qt.AlignRight
+            Layout.fillWidth: true
+            spacing: 8
+            Item { Layout.fillWidth: true }
+            Button {
+                text: "Finish"
+                onClicked: Qt.quit()
+            }
+        }
     }
 
     // Cancel Confirmation Dialog
-        Dialog {
+    Dialog {
         id: cancelDialog
 
         modal: true
